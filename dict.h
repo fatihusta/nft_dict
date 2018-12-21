@@ -2,6 +2,7 @@
 #include <linux/rhashtable.h>
 
 #define NFTA_DICT_MAX (__NFTA_DICT_MAX - 1)
+#define NFTA_CTID_MAX (__NFTA_CTID_MAX - 1)
 
 typedef void (*seq_printfn_t)(struct seq_file *m, char *buf);
 

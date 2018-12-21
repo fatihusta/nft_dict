@@ -265,13 +265,100 @@ static struct nft_expr_type nft_dict_type __read_mostly = {
 	.maxattr = NFTA_DICT_MAX,
 };
 
+/* These would be in nf_tables.h */
+enum nft_ctid_attributes {
+	NFTA_CTID_UNSPEC,
+	NFTA_CTID_DREG,
+	__NFTA_CTID_MAX,
+};
+
+struct nft_ctid {
+	enum nft_registers      dreg:8;
+};
+
+static const struct nla_policy nft_ctid_policy[NFTA_CTID_MAX + 1] = {
+	[NFTA_CTID_DREG]	= { .type = NLA_U32 },
+};
+
+static void nft_ctid_get_eval(const struct nft_expr *expr, struct nft_regs *regs, const struct nft_pktinfo *pkt)
+{
+	const struct nft_ctid *priv = nft_expr_priv(expr);
+	u32 *dest = &regs->data[priv->dreg];
+	enum ip_conntrack_info ctinfo;
+	const struct nf_conn *ct;
+	unsigned int ct_id;
+
+	ct = nf_ct_get(pkt->skb, &ctinfo);
+	ct_id = (unsigned long)ct;
+	*dest = ct_id;
+
+	return;
+}
+
+static int nft_ctid_init(const struct nft_ctx *ctx, const struct nft_expr *expr, const struct nlattr * const tb[])
+{
+	struct nft_ctid *priv = nft_expr_priv(expr);
+
+	if (!tb[NFTA_CTID_DREG])
+		return -EINVAL;
+
+	memset(priv, 0, sizeof(*priv));
+	priv->dreg = nft_parse_register(tb[NFTA_CTID_DREG]);
+
+	return nft_validate_register_store(ctx, priv->dreg, NULL,
+					  NFT_DATA_VALUE, sizeof(u32));
+}
+
+static int nft_ctid_dump(struct sk_buff *skb, const struct nft_expr *expr)
+{
+	const struct nft_ctid *priv = nft_expr_priv(expr);
+
+	if(priv->dreg != 0) {
+		if (nft_dump_register(skb, NFTA_CTID_DREG, priv->dreg))
+			return -1;
+	}
+
+	return 0;
+}
+
+static struct nft_expr_type nft_ctid_type;
+static const struct nft_expr_ops nft_ctid_ops = {
+	.eval = nft_ctid_get_eval,
+	.size = NFT_EXPR_SIZE(sizeof(struct nft_ctid)),
+	.init = nft_ctid_init,
+	.dump = nft_ctid_dump,
+	.type = &nft_ctid_type,
+};
+
+static struct nft_expr_type nft_ctid_type __read_mostly = {
+	.name = "ctid",
+	.ops = &nft_ctid_ops,
+	.owner = THIS_MODULE,
+	.policy = nft_ctid_policy,
+	.maxattr = NFTA_CTID_MAX,
+};
+
 static int __init nft_dict_module_init(void)
 {
-	return nft_register_expr(&nft_dict_type);
+	int ret;
+
+	ret = nft_register_expr(&nft_dict_type);
+	if(ret < 0) {
+		return ret;
+	}
+
+	ret = nft_register_expr(&nft_ctid_type);
+	if(ret < 0) {
+		nft_unregister_expr(&nft_dict_type);
+		return ret;
+	}
+
+	return ret;
 };
 
 static void __exit nft_dict_module_exit(void)
 {
+	nft_unregister_expr(&nft_ctid_type);
 	nft_unregister_expr(&nft_dict_type);
 }
 
