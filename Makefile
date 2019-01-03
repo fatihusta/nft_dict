@@ -11,7 +11,7 @@ install:
 	install -v -m 644 dict.ko $(IDIR)
 	install -v -m 644 nft_dict.ko $(IDIR)
 	depmod "$(KERNEL_VERSION)"
-	[ "$(KERNEL_VERSION)" != `uname -r` ] || modprobe dict.ko nft_dict.ko
+	[ "$(KERNEL_VERSION)" != `uname -r` ] || modprobe dict nft_dict
 
 clean:
 	rm -rf Module.markers modules.order Module.symvers
