@@ -368,4 +368,5 @@ module_exit(nft_dict_module_exit);
 MODULE_AUTHOR("Brett Mastbergen");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS_NFT_EXPR("dict");
+MODULE_ALIAS_NFT_EXPR("ctid");
 MODULE_DESCRIPTION("Generic dictionary matching for conntrack");
