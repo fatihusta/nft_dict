@@ -369,14 +369,9 @@ static int all_dict_show(struct seq_file *m, void *v)
 	struct rhltable *hlt = (struct rhltable *)m->private;
 	struct rhashtable_iter hti;
 	struct nf_conn_dict *dict;
-	unsigned int err;
 
 	rhltable_walk_enter(hlt, &hti);
-	err = rhashtable_walk_start(&hti);
-	if (err && err != -EAGAIN) {
-		pr_err("%s: rhashtable_walk_start failed: %d\n", __func__, err);
-		return err;
-	}
+	rhashtable_walk_start(&hti);
 
 	while ((dict = rhashtable_walk_next(&hti)) && !IS_ERR(dict)) {
 		show_dict(m, dict);
