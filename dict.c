@@ -755,7 +755,6 @@ static char read_table[128];
 static u32 read_field_hash = 0;
 static int read_show(struct seq_file *m, void *v)
 {
-	char * field = NULL;
 	struct nf_conn_dict * temp;
 	struct rhlist_head * tmp, * list;
 	struct dict_hash_cmp_arg arg = {
@@ -767,9 +766,11 @@ static int read_show(struct seq_file *m, void *v)
 	rcu_read_lock();
 	list = rhltable_lookup(&hlt, &arg, dict_rhashtable_params);
 	rhl_for_each_entry_rcu(temp, tmp, list, list) {
-		if(read_field_hash != 0 && (read_field_hash == temp->field->hash)) {
-			show_dict(m, temp);
-		} else if(!field) {
+		if(read_field_hash != 0) {
+			if(read_field_hash == temp->field->hash) {
+				show_dict(m, temp);
+			}
+		} else {
 			show_dict(m, temp);
 		}
 	}
