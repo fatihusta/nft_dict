@@ -726,7 +726,18 @@ static ssize_t write_dict(struct file *file, const char __user *buf, size_t size
 	if(key_len != 0 && field && value && len != 0) {
 		new_dict_entry(key, key_len, table, key_printfn, field, value, len, printfn);
 	} else {
-		pr_err("%s: Insuffient input\n", __func__);
+		char * debug_buffer;
+
+		debug_buffer = kzalloc(size + 1, GFP_KERNEL);
+		if (debug_buffer && (copy_from_user(debug_buffer, buf, size) == 0)) {
+			pr_err("%s: Insuffient input: %s\n", __func__, debug_buffer);
+		} else {
+			pr_err("%s: Insuffient input\n", __func__);
+		}
+
+		if(debug_buffer) {
+			kfree(debug_buffer);
+		}
 	}
 
 	kfree(field);
