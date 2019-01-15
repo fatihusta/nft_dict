@@ -91,9 +91,9 @@ qthelp:
 	@echo
 	@echo "Build finished; now you can run "qcollectiongenerator" with the" \
 	      ".qhcp project file in $(BUILDDIR)/qthelp, like this:"
-	@echo "# qcollectiongenerator $(BUILDDIR)/qthelp/MicroFirewall.qhcp"
+	@echo "# qcollectiongenerator $(BUILDDIR)/qthelp/nft_dict.qhcp"
 	@echo "To view the help file:"
-	@echo "# assistant -collectionFile $(BUILDDIR)/qthelp/MicroFirewall.qhc"
+	@echo "# assistant -collectionFile $(BUILDDIR)/qthelp/nft_dict.qhc"
 
 .PHONY: applehelp
 applehelp:
@@ -110,8 +110,8 @@ devhelp:
 	@echo
 	@echo "Build finished."
 	@echo "To view the help file:"
-	@echo "# mkdir -p $$HOME/.local/share/devhelp/MicroFirewall"
-	@echo "# ln -s $(BUILDDIR)/devhelp $$HOME/.local/share/devhelp/MicroFirewall"
+	@echo "# mkdir -p $$HOME/.local/share/devhelp/nft_dict"
+	@echo "# ln -s $(BUILDDIR)/devhelp $$HOME/.local/share/devhelp/nft_dict"
 	@echo "# devhelp"
 
 .PHONY: epub
