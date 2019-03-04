@@ -64,7 +64,7 @@ static seq_printfn_t print_func_by_type(int type)
 		case 9:
 			return &seq_print_mac;
 		case 41:
-			return &seq_print_integer;
+			return &seq_print_signed_integer;
 		case 42:
 			return &seq_print_integer64;
 		case 43:
@@ -338,6 +338,176 @@ static struct nft_expr_type nft_ctid_type __read_mostly = {
 	.maxattr = NFTA_CTID_MAX,
 };
 
+struct nft_cmp_expr {
+	struct nft_data		data;
+	enum nft_registers	sreg:8;
+	u8			len;
+	enum nft_cmp_ops	op:8;
+};
+
+static void nft_cmp_eval(const struct nft_expr *expr,
+			 struct nft_regs *regs,
+			 const struct nft_pktinfo *pkt)
+{
+	const struct nft_cmp_expr *priv = nft_expr_priv(expr);
+	int d;
+
+	d = memcmp(&regs->data[priv->sreg], &priv->data, priv->len);
+	if(d != 0) {
+		if(priv->len == sizeof(int32_t)) {
+			int32_t reg, data;
+			reg = (int32_t)regs->data[priv->sreg];
+			data = *(int32_t *)&priv->data;
+			if(reg > data)
+				d = 1;
+			else
+				d = -1;
+		} else {
+			int64_t reg, data;
+			reg = (int64_t)regs->data[priv->sreg];
+			data = *(int64_t *)&priv->data;
+			if(reg > data)
+				d = 1;
+			else
+				d = -1;
+		}
+	}
+
+	switch (priv->op) {
+	case NFT_CMP_EQ:
+		if (d != 0)
+			goto mismatch;
+		break;
+	case NFT_CMP_NEQ:
+		if (d == 0)
+			goto mismatch;
+		break;
+	case NFT_CMP_LT:
+		if (d == 0)
+			goto mismatch;
+	case NFT_CMP_LTE:
+		if (d > 0)
+			goto mismatch;
+		break;
+	case NFT_CMP_GT:
+		if (d == 0)
+			goto mismatch;
+	case NFT_CMP_GTE:
+		if (d < 0)
+			goto mismatch;
+		break;
+	}
+	return;
+
+mismatch:
+	regs->verdict.code = NFT_BREAK;
+}
+
+static const struct nla_policy nft_cmp_policy[NFTA_CMP_MAX + 1] = {
+	[NFTA_CMP_SREG]		= { .type = NLA_U32 },
+	[NFTA_CMP_OP]		= { .type = NLA_U32 },
+	[NFTA_CMP_DATA]		= { .type = NLA_NESTED },
+};
+
+static int nft_cmp_init(const struct nft_ctx *ctx, const struct nft_expr *expr,
+			const struct nlattr * const tb[])
+{
+	struct nft_cmp_expr *priv = nft_expr_priv(expr);
+	struct nft_data_desc desc;
+	int err;
+
+	err = nft_data_init(NULL, &priv->data, sizeof(priv->data), &desc,
+			    tb[NFTA_CMP_DATA]);
+	BUG_ON(err < 0);
+
+	priv->sreg = nft_parse_register(tb[NFTA_CMP_SREG]);
+	err = nft_validate_register_load(priv->sreg, desc.len);
+	if (err < 0)
+		return err;
+
+	priv->op  = ntohl(nla_get_be32(tb[NFTA_CMP_OP]));
+	priv->len = desc.len;
+	return 0;
+}
+
+static int nft_cmp_dump(struct sk_buff *skb, const struct nft_expr *expr)
+{
+	const struct nft_cmp_expr *priv = nft_expr_priv(expr);
+
+	if (nft_dump_register(skb, NFTA_CMP_SREG, priv->sreg))
+		goto nla_put_failure;
+	if (nla_put_be32(skb, NFTA_CMP_OP, htonl(priv->op)))
+		goto nla_put_failure;
+
+	if (nft_data_dump(skb, NFTA_CMP_DATA, &priv->data,
+			  NFT_DATA_VALUE, priv->len) < 0)
+		goto nla_put_failure;
+	return 0;
+
+nla_put_failure:
+	return -1;
+}
+
+struct nft_expr_type nft_scmp_type;
+static const struct nft_expr_ops nft_cmp_ops = {
+	.type		= &nft_scmp_type,
+	.size		= NFT_EXPR_SIZE(sizeof(struct nft_cmp_expr)),
+	.eval		= nft_cmp_eval,
+	.init		= nft_cmp_init,
+	.dump		= nft_cmp_dump,
+};
+
+static const struct nft_expr_ops *
+nft_cmp_select_ops(const struct nft_ctx *ctx, const struct nlattr * const tb[])
+{
+	struct nft_data_desc desc;
+	struct nft_data data;
+	enum nft_cmp_ops op;
+	int err;
+
+
+	if (tb[NFTA_CMP_SREG] == NULL ||
+	    tb[NFTA_CMP_OP] == NULL ||
+	    tb[NFTA_CMP_DATA] == NULL)
+		return ERR_PTR(-EINVAL);
+
+	op = ntohl(nla_get_be32(tb[NFTA_CMP_OP]));
+	switch (op) {
+	case NFT_CMP_EQ:
+	case NFT_CMP_NEQ:
+	case NFT_CMP_LT:
+	case NFT_CMP_LTE:
+	case NFT_CMP_GT:
+	case NFT_CMP_GTE:
+		break;
+	default:
+		return ERR_PTR(-EINVAL);
+	}
+
+	err = nft_data_init(NULL, &data, sizeof(data), &desc,
+			    tb[NFTA_CMP_DATA]);
+	if (err < 0)
+		return ERR_PTR(err);
+
+	if (desc.type != NFT_DATA_VALUE) {
+		err = -EINVAL;
+		goto err1;
+	}
+
+	return &nft_cmp_ops;
+err1:
+	nft_data_release(&data, desc.type);
+	return ERR_PTR(-EINVAL);
+}
+
+struct nft_expr_type nft_scmp_type __read_mostly = {
+	.name		= "scmp",
+	.select_ops	= nft_cmp_select_ops,
+	.policy		= nft_cmp_policy,
+	.maxattr	= NFTA_CMP_MAX,
+	.owner		= THIS_MODULE,
+};
+
 static int __init nft_dict_module_init(void)
 {
 	int ret;
@@ -353,11 +523,19 @@ static int __init nft_dict_module_init(void)
 		return ret;
 	}
 
+	ret = nft_register_expr(&nft_scmp_type);
+	if(ret < 0) {
+		nft_unregister_expr(&nft_ctid_type);
+		nft_unregister_expr(&nft_dict_type);
+		return ret;
+	}
+
 	return ret;
 };
 
 static void __exit nft_dict_module_exit(void)
 {
+	nft_unregister_expr(&nft_scmp_type);
 	nft_unregister_expr(&nft_ctid_type);
 	nft_unregister_expr(&nft_dict_type);
 }
@@ -369,4 +547,5 @@ MODULE_AUTHOR("Brett Mastbergen");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS_NFT_EXPR("dict");
 MODULE_ALIAS_NFT_EXPR("ctid");
+MODULE_ALIAS_NFT_EXPR("scmp");
 MODULE_DESCRIPTION("Generic dictionary matching for conntrack");

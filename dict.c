@@ -443,11 +443,11 @@ static const match_table_t tokens = {
 	{Opt_err, NULL},
 };
 
-static int match_u64int(substring_t *s, u64 *result)
+static int match_int64(substring_t *s, u64 *result)
 {
 	char *buf;
 	int ret;
-	u64 val;
+	int64_t val;
 	size_t len = s->to - s->from;
 
 	buf = kmalloc(len + 1, GFP_KERNEL);
@@ -457,7 +457,7 @@ static int match_u64int(substring_t *s, u64 *result)
 	memcpy(buf, s->from, len);
 	buf[len] = '\0';
 
-	ret = kstrtoull(buf, 0, &val);
+	ret = kstrtoll(buf, 0, &val);
 	if(!ret)
 		*result = val;
 
@@ -527,9 +527,15 @@ void seq_print_integer(struct seq_file *m, char *buf)
 }
 EXPORT_SYMBOL(seq_print_integer);
 
+void seq_print_signed_integer(struct seq_file *m, char *buf)
+{
+	seq_printf(m, "int: %d", *(int *)buf);
+}
+EXPORT_SYMBOL(seq_print_signed_integer);
+
 void seq_print_integer64(struct seq_file *m, char *buf)
 {
-	seq_printf(m, "int64: %llu", *(u64 *)buf);
+	seq_printf(m, "int64: %lld", *(int64_t *)buf);
 }
 EXPORT_SYMBOL(seq_print_integer64);
 
@@ -538,7 +544,7 @@ static ssize_t write_dict(struct file *file, const char __user *buf, size_t size
 	u8 key[128];
 	char *orig, *local_buf, *p, *field = NULL, *value = NULL, *ip = NULL, *table = NULL, *string_value = NULL;
 	unsigned int len = 0, key_len = 0, integer = 0;
-	u64 integer64 = 0;
+	int64_t integer64 = 0;
 	u8 addr[4] = {0,0,0,0};
 	u8 addr6[16] = {0,0,0,0,
 			0,0,0,0,
@@ -695,19 +701,19 @@ static ssize_t write_dict(struct file *file, const char __user *buf, size_t size
 					}
 					value = (char *)&integer;
 					len = sizeof(int);
-					printfn = &seq_print_integer;
+					printfn = &seq_print_signed_integer;
 					break;
 				}
 			case Opt_int64:
 				{
 					int ret = 0;
-					ret = match_u64int(&args[0], &integer64);
+					ret = match_int64(&args[0], &integer64);
 					if(ret) {
 						pr_err("%s: Opt_int64 failed %d\n", __func__, ret);
 						goto free_local_buf;
 					}
 					value = (char *)&integer64;
-					len = sizeof(u64);
+					len = sizeof(int64_t);
 					printfn = &seq_print_integer64;
 					break;
 				}
