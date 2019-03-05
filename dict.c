@@ -774,18 +774,36 @@ static int read_show(struct seq_file *m, void *v)
 		.table = read_table,
 	};
 
-	rcu_read_lock();
-	list = rhltable_lookup(&hlt, &arg, dict_rhashtable_params);
-	rhl_for_each_entry_rcu(temp, tmp, list, list) {
-		if(read_field_hash != 0) {
-			if(read_field_hash == temp->field->hash) {
+	if (read_key_len != 0) {
+		rcu_read_lock();
+		list = rhltable_lookup(&hlt, &arg, dict_rhashtable_params);
+		rhl_for_each_entry_rcu(temp, tmp, list, list) {
+			if(read_field_hash != 0) {
+				if(read_field_hash == temp->field->hash) {
+					show_dict(m, temp);
+				}
+			} else {
 				show_dict(m, temp);
 			}
-		} else {
-			show_dict(m, temp);
 		}
+		rcu_read_unlock();
+	} else {
+		struct rhashtable_iter hti;
+		u32 table_hash = jhash(read_table, strlen(read_table), 0);
+
+		rhltable_walk_enter(&hlt, &hti);
+		rhashtable_walk_start(&hti);
+
+		while ((temp = rhashtable_walk_next(&hti)) && !IS_ERR(temp)) {
+			if(table_hash == temp->table->hash) {
+				show_dict(m, temp);
+			}
+		}
+
+		rhashtable_walk_stop(&hti);
+		rhashtable_walk_exit(&hti);
+
 	}
-	rcu_read_unlock();
 
 	return 0;
 }
