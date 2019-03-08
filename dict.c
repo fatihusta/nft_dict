@@ -1,3 +1,4 @@
+#include <linux/version.h>
 #include <linux/module.h>
 #include <linux/proc_fs.h>
 #include <linux/rhashtable.h>
@@ -7,8 +8,12 @@
 #include <net/netfilter/nf_conntrack.h>
 #include "dict.h"
 
-static struct proc_dir_entry *dict_dir;
-static struct rhltable hlt;
+unsigned int dict_net_id;
+
+struct dict_net {
+	struct proc_dir_entry *dict_dir;
+	struct rhltable hlt;
+};
 
 struct nf_conn_dict {
 	struct rhlist_head list;
@@ -134,12 +139,14 @@ static void dict_context_free(struct rcu_head *head)
 	__free_dict(dict);
 }
 
-struct nf_conn_dict * new_dict_entry(u8 *key, u32 key_len, char *table, seq_printfn_t key_printfn,
+struct nf_conn_dict * new_dict_entry(struct net *net, u8 *key, u32 key_len, char *table, seq_printfn_t key_printfn,
 				char * field, char * value, u32 len, seq_printfn_t printfn)
 {
 	int ret;
 	struct rhlist_head * list, * tmp;
 	struct nf_conn_dict * dict, * temp;
+	struct dict_net * dn = net_generic(net, dict_net_id);
+	struct rhltable *hlt = &dn->hlt;
 	struct dict_hash_cmp_arg arg = {
 		.key = key,
 		.key_len = key_len,
@@ -211,10 +218,10 @@ struct nf_conn_dict * new_dict_entry(u8 *key, u32 key_len, char *table, seq_prin
 	dict->value->printfn = printfn;
 
 	rcu_read_lock();
-	list = rhltable_lookup(&hlt, &arg, dict_rhashtable_params);
+	list = rhltable_lookup(hlt, &arg, dict_rhashtable_params);
 	rhl_for_each_entry_rcu(temp, tmp, list, list) {
 		if(dict->field->hash == temp->field->hash) {
-			ret = rhltable_remove(&hlt, &temp->list, dict_rhashtable_params);
+			ret = rhltable_remove(hlt, &temp->list, dict_rhashtable_params);
 			if(ret == -ENOENT) {
 				continue;
 			}
@@ -226,7 +233,7 @@ struct nf_conn_dict * new_dict_entry(u8 *key, u32 key_len, char *table, seq_prin
 			call_rcu(&temp->rcu_head, dict_context_free);
 		}
 	}
-	ret = rhltable_insert_key(&hlt, &arg, &dict->list, dict_rhashtable_params);
+	ret = rhltable_insert_key(hlt, &arg, &dict->list, dict_rhashtable_params);
 	rcu_read_unlock();
 	if(ret < 0) {
 		pr_err("%s: Unable to insert dict into hashtable: %d\n", __func__, ret);
@@ -245,8 +252,10 @@ static void free_dict(void *ptr, void *arg)
 	call_rcu(&dict->rcu_head, dict_context_free);
 }
 
-struct nf_conn_dict * find_conntrack_dict(u8 *key, u32 key_len, char *table)
+struct nf_conn_dict * find_conntrack_dict(struct net *net, u8 *key, u32 key_len, char *table)
 {
+	struct dict_net *dn = net_generic(net, dict_net_id);
+	struct rhltable *hlt = &dn->hlt;
 	struct nf_conn_dict * dict;
 	struct rhlist_head * list;
 	struct dict_hash_cmp_arg arg = {
@@ -256,7 +265,7 @@ struct nf_conn_dict * find_conntrack_dict(u8 *key, u32 key_len, char *table)
 	};
 
 	rcu_read_lock();
-	list = rhltable_lookup(&hlt, &arg, dict_rhashtable_params);
+	list = rhltable_lookup(hlt, &arg, dict_rhashtable_params);
 	dict = container_of(list, struct nf_conn_dict, list);
 	rcu_read_unlock();
 
@@ -264,8 +273,10 @@ struct nf_conn_dict * find_conntrack_dict(u8 *key, u32 key_len, char *table)
 }
 
 /* called within rcu read lock */
-struct nf_conn_dict_entry_elem * find_conntrack_dict_entry(u8 *key, u32 key_len, char *table, char * field)
+struct nf_conn_dict_entry_elem * find_conntrack_dict_entry(struct net *net, u8 *key, u32 key_len, char *table, char * field)
 {
+	struct dict_net *dn = net_generic(net, dict_net_id);
+	struct rhltable *hlt = &dn->hlt;
 	struct nf_conn_dict * temp;
 	struct rhlist_head * tmp, * list;
 	struct dict_hash_cmp_arg arg = {
@@ -279,7 +290,7 @@ struct nf_conn_dict_entry_elem * find_conntrack_dict_entry(u8 *key, u32 key_len,
 		hash = jhash(field, strlen(field), 0);
 	}
 
-	list = rhltable_lookup(&hlt, &arg, dict_rhashtable_params);
+	list = rhltable_lookup(hlt, &arg, dict_rhashtable_params);
 	rhl_for_each_entry_rcu(temp, tmp, list, list) {
 		if(hash == temp->field->hash) {
 			return temp->value;
@@ -290,8 +301,10 @@ struct nf_conn_dict_entry_elem * find_conntrack_dict_entry(u8 *key, u32 key_len,
 }
 EXPORT_SYMBOL_GPL(find_conntrack_dict_entry);
 
-void destroy_dict_entry(u8 *key, u32 key_len, char *table, char *field)
+void destroy_dict_entry(struct net *net, u8 *key, u32 key_len, char *table, char *field)
 {
+	struct dict_net *dn = net_generic(net, dict_net_id);
+	struct rhltable *hlt = &dn->hlt;
 	struct nf_conn_dict * temp;
 	struct rhlist_head * tmp, * list;
 	struct dict_hash_cmp_arg arg = {
@@ -307,10 +320,10 @@ void destroy_dict_entry(u8 *key, u32 key_len, char *table, char *field)
 	}
 
 	rcu_read_lock();
-	list = rhltable_lookup(&hlt, &arg, dict_rhashtable_params);
+	list = rhltable_lookup(hlt, &arg, dict_rhashtable_params);
 	rhl_for_each_entry_rcu(temp, tmp, list, list) {
 		if(hash == temp->field->hash) {
-			ret = rhltable_remove(&hlt, tmp, dict_rhashtable_params);
+			ret = rhltable_remove(hlt, tmp, dict_rhashtable_params);
 			if(ret < 0) {
 				pr_err("%s: Unable to remove entry from hashtable: %d\n", __func__, ret);
 				continue;
@@ -323,14 +336,16 @@ void destroy_dict_entry(u8 *key, u32 key_len, char *table, char *field)
 	return;
 }
 
-void destroy_dict(u8 *key, u32 key_len, char *table)
+void destroy_dict(struct net *net, u8 *key, u32 key_len, char *table)
 {
+	struct dict_net *dn = net_generic(net, dict_net_id);
+	struct rhltable *hlt = &dn->hlt;
 	struct nf_conn_dict * dict;
 	int ret;
 
 	rcu_read_lock();
-	while((dict = find_conntrack_dict(key, key_len, table))) {
-		ret = rhltable_remove(&hlt, &dict->list, dict_rhashtable_params);
+	while((dict = find_conntrack_dict(net, key, key_len, table))) {
+		ret = rhltable_remove(hlt, &dict->list, dict_rhashtable_params);
 		if(ret < 0) {
 			pr_err("%s: Unable to remove entry from hashtable: %d\n", __func__, ret);
 			continue;
@@ -366,7 +381,9 @@ static int show_dict(struct seq_file *m, struct nf_conn_dict *dict)
 
 static int all_dict_show(struct seq_file *m, void *v)
 {
-	struct rhltable *hlt = (struct rhltable *)m->private;
+	struct net *net = (struct net *)m->private;
+	struct dict_net *dn = net_generic(net, dict_net_id);
+	struct rhltable *hlt = &dn->hlt;
 	struct rhashtable_iter hti;
 	struct nf_conn_dict *dict;
 
@@ -383,9 +400,10 @@ static int all_dict_show(struct seq_file *m, void *v)
 	return 0;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,18,0)
 static int all_dict_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, all_dict_show, PDE_DATA(inode));
+	return single_open_net(inode, file, all_dict_show);
 }
 
 static const struct file_operations all_dict_file_ops = {
@@ -395,16 +413,19 @@ static const struct file_operations all_dict_file_ops = {
 	.llseek  = seq_lseek,
 	.release = single_release,
 };
+#endif
 
 static int write_show(struct seq_file *m, void *v)
 {
 	return 0;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,18,0)
 static int write_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, write_show, PDE_DATA(inode));
+	return single_open_net(inode, file, write_show);
 }
+#endif
 
 enum {
 	Opt_key_int,
@@ -539,8 +560,14 @@ void seq_print_integer64(struct seq_file *m, char *buf)
 }
 EXPORT_SYMBOL(seq_print_integer64);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,18,0)
 static ssize_t write_dict(struct file *file, const char __user *buf, size_t size, loff_t *pos)
+#else
+static int write_dict(struct file *file, char *buf, size_t size)
+#endif
 {
+	struct seq_file *m = (struct seq_file *)file->private_data;
+	struct net *net = (struct net *)m->private;
 	u8 key[128];
 	char *orig, *local_buf, *p, *field = NULL, *value = NULL, *ip = NULL, *table = NULL, *string_value = NULL;
 	unsigned int len = 0, key_len = 0, integer = 0;
@@ -558,6 +585,7 @@ static ssize_t write_dict(struct file *file, const char __user *buf, size_t size
 
 	memset(key, 0, sizeof(key));
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,18,0)
 	orig = local_buf = kzalloc(size + 1, GFP_KERNEL);
 	if(!local_buf) {
 		pr_err("%s: Could not allocate local buffer!\n", __func__);
@@ -568,6 +596,9 @@ static ssize_t write_dict(struct file *file, const char __user *buf, size_t size
 		pr_err("%s: copy_from_user failed!\n", __func__);
 		goto free_local_buf;
 	}
+#else
+	orig = local_buf = buf;
+#endif
 
 	while ((p = strsep(&local_buf, ","))) {
 		int token;
@@ -730,7 +761,7 @@ static ssize_t write_dict(struct file *file, const char __user *buf, size_t size
 	}
 
 	if(key_len != 0 && field && value && len != 0) {
-		new_dict_entry(key, key_len, table, key_printfn, field, value, len, printfn);
+		new_dict_entry(net, key, key_len, table, key_printfn, field, value, len, printfn);
 	} else {
 		char * debug_buffer;
 
@@ -752,11 +783,14 @@ static ssize_t write_dict(struct file *file, const char __user *buf, size_t size
 	if(table)
 		kfree(table);
 free_local_buf:
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,18,0)
 	kfree(orig);
 err:
+#endif
 	return size;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,18,0)
 static const struct file_operations write_file_ops = {
 	.owner   = THIS_MODULE,
 	.open    = write_open,
@@ -765,6 +799,7 @@ static const struct file_operations write_file_ops = {
 	.llseek  = seq_lseek,
 	.release = single_release,
 };
+#endif
 
 static char read_key[128];
 static int read_key_len = 0;
@@ -772,6 +807,9 @@ static char read_table[128];
 static u32 read_field_hash = 0;
 static int read_show(struct seq_file *m, void *v)
 {
+	struct net *net = (struct net *)m->private;
+	struct dict_net *dn = net_generic(net, dict_net_id);
+	struct rhltable *hlt = &dn->hlt;
 	struct nf_conn_dict * temp;
 	struct rhlist_head * tmp, * list;
 	struct dict_hash_cmp_arg arg = {
@@ -782,7 +820,7 @@ static int read_show(struct seq_file *m, void *v)
 
 	if (read_key_len != 0) {
 		rcu_read_lock();
-		list = rhltable_lookup(&hlt, &arg, dict_rhashtable_params);
+		list = rhltable_lookup(hlt, &arg, dict_rhashtable_params);
 		rhl_for_each_entry_rcu(temp, tmp, list, list) {
 			if(read_field_hash != 0) {
 				if(read_field_hash == temp->field->hash) {
@@ -797,7 +835,7 @@ static int read_show(struct seq_file *m, void *v)
 		struct rhashtable_iter hti;
 		u32 table_hash = jhash(read_table, strlen(read_table), 0);
 
-		rhltable_walk_enter(&hlt, &hti);
+		rhltable_walk_enter(hlt, &hti);
 		rhashtable_walk_start(&hti);
 
 		while ((temp = rhashtable_walk_next(&hti)) && !IS_ERR(temp)) {
@@ -814,12 +852,16 @@ static int read_show(struct seq_file *m, void *v)
 	return 0;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,18,0)
 static int read_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, read_show, PDE_DATA(inode));
+	return single_open_net(inode, file, read_show);
 }
 
 static ssize_t read_id_write(struct file *file, const char __user *buf, size_t size, loff_t *pos)
+#else
+static int read_id_write(struct file *file, char *buf, size_t size)
+#endif
 {
 	u8 key[128];
 	char * orig, * local_buf, * p,* table = NULL, * field = NULL;
@@ -828,6 +870,7 @@ static ssize_t read_id_write(struct file *file, const char __user *buf, size_t s
 
 	memset(key, 0, sizeof(key));
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,18,0)
 	orig = local_buf = kzalloc(size + 1, GFP_KERNEL);
 	if(!local_buf) {
 		pr_err("%s: Could not allocate local buffer!\n", __func__);
@@ -838,6 +881,9 @@ static ssize_t read_id_write(struct file *file, const char __user *buf, size_t s
 		pr_err("%s: copy_from_user failed!\n", __func__);
 		goto free_local_buf;
 	}
+#else
+	orig = local_buf = buf;
+#endif
 
 	while ((p = strsep(&local_buf, ","))) {
 		int token;
@@ -925,11 +971,14 @@ static ssize_t read_id_write(struct file *file, const char __user *buf, size_t s
 	if(table)
 		kfree(table);
 free_local_buf:
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,18,0)
 	kfree(orig);
 err:
+#endif
 	return size;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,18,0)
 static const struct file_operations read_file_ops = {
 	.owner   = THIS_MODULE,
 	.open    = read_open,
@@ -938,16 +987,24 @@ static const struct file_operations read_file_ops = {
 	.llseek  = seq_lseek,
 	.release = single_release,
 };
+#endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,18,0)
 static ssize_t delete_write(struct file *file, const char __user *buf, size_t size, loff_t *pos)
+#else
+static int delete_write(struct file *file, char *buf, size_t size)
+#endif
 {
 	u8 key[128];
 	char * orig, * local_buf, * p,* table = NULL, * field = NULL;
 	substring_t args[MAX_OPT_ARGS];
 	unsigned int key_len = 0;
+	struct seq_file *m = (struct seq_file *)file->private_data;
+	struct net *net = (struct net *)m->private;
 
 	memset(key, 0, sizeof(key));
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,18,0)
 	orig = local_buf = kzalloc(size + 1, GFP_KERNEL);
 	if(!local_buf) {
 		pr_err("%s: Could not allocate local buffer!\n", __func__);
@@ -958,6 +1015,9 @@ static ssize_t delete_write(struct file *file, const char __user *buf, size_t si
 		pr_err("%s: copy_from_user failed!\n", __func__);
 		goto free_local_buf;
 	}
+#else
+	orig = local_buf = buf;
+#endif
 
 	while ((p = strsep(&local_buf, ","))) {
 		int token;
@@ -1033,17 +1093,19 @@ static ssize_t delete_write(struct file *file, const char __user *buf, size_t si
 	}
 
 	if(field) {
-		destroy_dict_entry(key, key_len, table, field);
+		destroy_dict_entry(net, key, key_len, table, field);
 		kfree(field);
 	} else {
-		destroy_dict(key, key_len, table);
+		destroy_dict(net, key, key_len, table);
 	}
 
 	if(table)
 		kfree(table);
 free_local_buf:
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,18,0)
 	kfree(orig);
 err:
+#endif
 	return size;
 }
 
@@ -1052,9 +1114,10 @@ static int delete_show(struct seq_file *m, void *v)
 	return 0;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,18,0)
 static int delete_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, delete_show, PDE_DATA(inode));
+	return single_open_net(inode, file, delete_show);
 }
 
 static const struct file_operations delete_file_ops = {
@@ -1065,94 +1128,104 @@ static const struct file_operations delete_file_ops = {
 	.llseek  = seq_lseek,
 	.release = single_release,
 };
+#endif
 
 static int __net_init dict_net_init(struct net *net)
 {
 	int ret = 0;
 	struct proc_dir_entry * temp;
+	struct dict_net * dn = net_generic(net, dict_net_id);
 
-	dict_dir = proc_net_mkdir(net, "dict", net->proc_net);
-	if (!dict_dir) {
-		pr_err("cannot create dict proc entry");
-		return -ENOMEM;
+	ret = rhltable_init(&dn->hlt, &dict_rhashtable_params);
+	if(ret < 0) {
+		pr_err("%s: Unable to initialize hashtable: %d\n", __func__, ret);
+		return ret;
 	}
 
-	temp = proc_create_data("all", 0440, dict_dir, &all_dict_file_ops, &hlt);
+	dn->dict_dir = proc_net_mkdir(net, "dict", net->proc_net);
+	if (!dn->dict_dir) {
+		pr_err("cannot create dict proc entry");
+		goto error_no_mem;
+	}
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,18,0)
+	temp = proc_create("all", 0440, dn->dict_dir, &all_dict_file_ops);
+#else
+	temp = proc_create_net_single("all", 0440, dn->dict_dir, all_dict_show, NULL);
+#endif
 	if (!temp) {
 		pr_err("cannot create all proc");
-		remove_proc_entry("dict", net->proc_net);
-		return -ENOMEM;
+		goto error_no_proc;
 	}
 
-	temp = proc_create_data("write", 0440, dict_dir, &write_file_ops, NULL);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,18,0)
+	temp = proc_create("write", 0440, dn->dict_dir, &write_file_ops);
+#else
+	temp = proc_create_net_single_write("write", 0440, dn->dict_dir, write_show, write_dict, NULL);
+#endif
 	if (!temp) {
-		remove_proc_entry("all", dict_dir);
 		pr_err("cannot create write proc");
-		return -ENOMEM;
+		goto error_no_proc;
 	}
 
-	temp = proc_create_data("read", 0440, dict_dir, &read_file_ops, NULL);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,18,0)
+	temp = proc_create("read", 0440, dn->dict_dir, &read_file_ops);
+#else
+	temp = proc_create_net_single_write("read", 0440, dn->dict_dir, read_show, read_id_write, NULL);
+#endif
 	if (!temp) {
-		remove_proc_entry("write", dict_dir);
-		remove_proc_entry("all", dict_dir);
 		pr_err("cannot create read proc");
-		return -ENOMEM;
+		goto error_no_proc;
 	}
 
-	temp = proc_create_data("delete", 0440, dict_dir, &delete_file_ops, NULL);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,18,0)
+	temp = proc_create("delete", 0440, dn->dict_dir, &delete_file_ops);
+#else
+	temp = proc_create_net_single_write("delete", 0440, dn->dict_dir, delete_show, delete_write, NULL);
+#endif
 	if (!temp) {
-		remove_proc_entry("read", dict_dir);
-		remove_proc_entry("write", dict_dir);
-		remove_proc_entry("all", dict_dir);
 		pr_err("cannot create delete proc");
-		return -ENOMEM;
+		goto error_no_proc;
 	}
-
-
 	return ret;
+
+error_no_proc:
+	remove_proc_subtree("dict", net->proc_net);
+error_no_mem:
+	rhltable_free_and_destroy(&dn->hlt, free_dict, NULL);
+	return -ENOMEM;
 }
 
 static void __net_exit dict_net_exit(struct net *net)
 {
-	remove_proc_entry("delete", dict_dir);
-	remove_proc_entry("read", dict_dir);
-	remove_proc_entry("write", dict_dir);
-	remove_proc_entry("all", dict_dir);
-	remove_proc_entry("dict", net->proc_net);
+	struct dict_net * dn = net_generic(net, dict_net_id);
+
+	remove_proc_subtree("dict", net->proc_net);
+	rhltable_free_and_destroy(&dn->hlt, free_dict, NULL);
 }
 
 static struct pernet_operations dict_net_ops = {
 	.init = dict_net_init,
 	.exit = dict_net_exit,
+	.id = &dict_net_id,
+	.size = sizeof(struct dict_net),
 };
 
 void dict_exit(void)
 {
 	unregister_pernet_subsys(&dict_net_ops);
-	rhltable_free_and_destroy(&hlt, free_dict, NULL);
 }
 
 int dict_init(void)
 {
 	int err = 0;
 
-	err = rhltable_init(&hlt, &dict_rhashtable_params);
-	if(err < 0) {
-		pr_err("%s: Unable to initialize hashtable: %d\n", __func__, err);
-		goto err;
-	}
-
 	err = register_pernet_subsys(&dict_net_ops);
 	if (err) {
-		goto err_destroy_rhashtable;
+		return err;
 	}
 
 	return 0;
-
-err_destroy_rhashtable:
-	rhltable_free_and_destroy(&hlt, free_dict, NULL);
-err:
-	return err;
 }
 
 MODULE_AUTHOR("Brett Mastbergen <bmastbergen@untangle.com>");

@@ -1,8 +1,16 @@
+#include <linux/version.h>
 #include <linux/glob.h>
 #include <linux/tcp.h>
 #include <net/netfilter/nf_tables.h>
 #include <net/netfilter/nf_conntrack.h>
 #include "dict.h"
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,10,0)
+static inline struct net *nft_net(const struct nft_pktinfo *pkt)
+{
+	return pkt->net;
+}
+#endif
 
 /* These would be in nf_tables.h */
 enum nft_dict_attributes {
@@ -99,7 +107,7 @@ static void nft_dict_get_eval(const struct nft_expr *expr, struct nft_regs *regs
 	unsigned int len;
 
 	if(priv->flush) {
-		destroy_dict(key, priv->len, priv->ptable);
+		destroy_dict(nft_net(pkt), key, priv->len, priv->ptable);
 		return;
 	}
 
@@ -112,10 +120,10 @@ static void nft_dict_get_eval(const struct nft_expr *expr, struct nft_regs *regs
 			len = priv->size;
 		}
 
-		new_dict_entry(key, priv->len, priv->ptable, print_func_by_table(priv->table), priv->field, value, len, print_func_by_type(priv->type));
+		new_dict_entry(nft_net(pkt), key, priv->len, priv->ptable, print_func_by_table(priv->table), priv->field, value, len, print_func_by_type(priv->type));
 	} else {
 		rcu_read_lock();
-		value_elem = find_conntrack_dict_entry(key, priv->len, priv->ptable, priv->field);
+		value_elem = find_conntrack_dict_entry(nft_net(pkt), key, priv->len, priv->ptable, priv->field);
 		if(!value_elem) {
 			rcu_read_unlock();
 			goto err;

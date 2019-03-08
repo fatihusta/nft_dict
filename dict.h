@@ -13,7 +13,7 @@ struct nf_conn_dict_entry_elem {
 	seq_printfn_t printfn;
 };
 
-struct nf_conn_dict * new_dict_entry(u8 *key, u32 key_len, char *table, seq_printfn_t key_printfn,
+struct nf_conn_dict * new_dict_entry(struct net *net, u8 *key, u32 key_len, char *table, seq_printfn_t key_printfn,
 				char * field, char * value, u32 len, seq_printfn_t printfn);
 void seq_print_ip(struct seq_file *m, char *buf);
 void seq_print_ip6(struct seq_file *m, char *buf);
@@ -23,5 +23,5 @@ void seq_print_bool(struct seq_file *m, char *buf);
 void seq_print_integer(struct seq_file *m, char *buf);
 void seq_print_signed_integer(struct seq_file *m, char *buf);
 void seq_print_integer64(struct seq_file *m, char *buf);
-void destroy_dict(u8 *key, u32 key_len, char *table);
-struct nf_conn_dict_entry_elem * find_conntrack_dict_entry(u8 *key, u32 key_len, char *table, char * field);
+void destroy_dict(struct net *net, u8 *key, u32 key_len, char *table);
+struct nf_conn_dict_entry_elem * find_conntrack_dict_entry(struct net *net, u8 *key, u32 key_len, char *table, char * field);
