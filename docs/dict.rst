@@ -253,4 +253,79 @@ Block netflix for all users in the sales group. This looks up the user from the 
 
 *nft add rule ip filter forward dict users dict sessions ct id username long_string  user_group long_string \*sales\* reject*
 
+Managing Table Entries
+--------------------
 
+The dict kernel module is responsible for storing tables and allowing userspace to manage them via a set of proc nodes.
+
+Reading Tables
+~~~~~~~~~~~~~~
+
+/proc/net/dict/all can be read to dump all of the entries in all of the tables
+
+.. code::
+
+    [root @ untangle] ~ # cat /proc/net/dict/all
+    table: sessions key_int:286331238 field: application_chain string: IP/UDP/DNS
+    table: sessions key_int:286331238 field: session_id int64: 12341210
+    table: sessions key_int:286331238 field: client_country string: XL
+    table: sessions key_int:286331238 field: server_country string: US
+    ...
+    table: sessions key_int:286331255 field: application_chain string: IP/UDP/DNS
+    table: sessions key_int:286331255 field: session_id int64: 12341212
+    table: sessions key_int:286331255 field: client_country string: XL
+    table: sessions key_int:286331255 field: server_country string: US
+    ...
+    table: hosts key_ip: 192.168.1.100 field: mac_address mac: 00:11:22:33:44:55
+    table: hosts key_ip: 192.168.1.100 field: mac_address_vendor string: Intel Coporation
+    ...
+    table: hosts key_ip: 192.168.1.101 field: mac_address mac: 00:11:22:33:44:66
+    table: hosts key_ip: 192.168.1.101 field: mac_address_vendor string: Samsung Electro
+    ...
+    table: devices key_mac: 00:11:22:33:44:55 field: interface int: 5
+    table: devices key_mac: 00:11:22:33:44:55 field: hostname string: windows_pc
+    ...
+    table: devices key_mac: 00:11:22:33:44:66 field: interface int: 5
+    table: devices key_mac: 00:11:22:33:44:66 field: hostname string: samsung-sm-g935v
+    ...
+    table: users key_string: user123 field: quota_remaining int: 1234333
+    table: users key_string: user123 field: quota_exceeded bool: false
+    ...
+    table: users key_string: user531 field: quota_remaining int: 1234333
+    table: users key_string: user531 field: quota_exceeded bool: false
+
+/proc/net/dict/read can be used to read based on the supplied criteria
+
+Read just the sessions table
+
+.. code::
+
+  [root @ untangle] ~ # echo -n "table=sessions" > /proc/net/dict/read ; cat /proc/net/dict/read
+      table: sessions key_int:286331238 field: application_chain string: IP/UDP/DNS
+    table: sessions key_int:286331238 field: session_id int64: 12341210
+    table: sessions key_int:286331238 field: client_country string: XL
+    table: sessions key_int:286331238 field: server_country string: US
+    ...
+    table: sessions key_int:286331255 field: application_chain string: IP/UDP/DNS
+    table: sessions key_int:286331255 field: session_id int64: 12341212
+    table: sessions key_int:286331255 field: client_country string: XL
+    table: sessions key_int:286331255 field: server_country string: US
+    ...
+
+Read all of the entries for a specific session
+
+.. code::
+
+  [root @ untangle] ~ # echo -n "table=sessions,key_int=286331238" > /proc/net/dict/read ; cat /proc/net/dict/read
+    table: sessions key_int:286331238 field: application_chain string: IP/UDP/DNS
+    table: sessions key_int:286331238 field: session_id int64: 12341210
+    table: sessions key_int:286331238 field: client_country string: XL
+    table: sessions key_int:286331238 field: server_country string: US
+    ...
+
+Read just one field from a specific session
+
+.. code::
+
+  [root @ untangle] ~ # echo -n "table=sessions,key_int=286331238,field=server_country" > /proc/net/dict/read ; cat /proc/net/dict/read
+    table: sessions key_int:286331238 field: server_country string: US
