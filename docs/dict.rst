@@ -15,8 +15,8 @@ nft_dict is a kernel module providing the kernel functionality.
 Additionally userspace patches are required in order to use the "dict" expression from within an nft rule.
 These currently live here:
 
-https://github.com/untangle/ngfw_upstream/tree/master/libnftnl/libnftnl-1.0.7/upstream-patches
-https://github.com/untangle/ngfw_upstream/tree/master/nftables/nftables-0.7/upstream-patches
+https://github.com/untangle/mfw_openwrt/blob/openwrt-18.06/libnftnl/patches/999-libnftnl-Add-dict-support.patch
+https://github.com/untangle/mfw_openwrt/blob/openwrt-18.06/nftables/patches/999-nftables-Add-dict.patch
 
 Additionally included is a patch to enabled a "ct id" nft expression which is the conntrack ID.
 While not strictly required it is extremely useful to allow for easy identification of a session.
