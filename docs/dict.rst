@@ -18,8 +18,9 @@ These currently live here:
 https://github.com/untangle/mfw_openwrt/blob/openwrt-18.06/libnftnl/patches/999-libnftnl-Add-dict-support.patch
 https://github.com/untangle/mfw_openwrt/blob/openwrt-18.06/nftables/patches/999-nftables-Add-dict.patch
 
-Additionally included is a patch to enabled a "ct id" nft expression which is the conntrack ID.
-While not strictly required it is extremely useful to allow for easy identification of a session.
+These patches, along with the nft_dict kernel module, also add support for an "id" key to the "ct" match expression.  The
+"ct id" expression simply returns the conntrack id of the conntrack.  This is the same conntrack id you see if you run
+'conntrack -L --output=id'.  While not strictly required, the "ct id" expression is extremely useful as a key expression into a dict table for matching entries to a particular conntrack.  The correct place to implement the "id" ct key is in the existing nft_ct module, but for now its implemented in the nft_dict module.
 
 Syntax
 ------
