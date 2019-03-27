@@ -61,7 +61,8 @@ ether_addr  MAC address
 ipv4_addr   IPV4 address
 ipv6_addr   IPV6 address
 long_string a string up to 128 bytes. This may also include wildcard characters like: ?, \*, [, ], !, and -.
-integer     4 byte integer
+int         4 byte integer
+int64       8 byte integer
 =========== =========
 
 value
