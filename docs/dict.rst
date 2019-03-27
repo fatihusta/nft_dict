@@ -6,13 +6,13 @@ Summary
 -------
 
 The nft_dict, short for netfilter dictionary, module provides a nft rule mechanism do table lookups on environment metadata that is not present in the packet and not contained within the rule.
-In a firewall you often wish to block or manipulate packets based on things not immediately evident in the packet, but things that can often be calculated in various ways.
+In a firewall you often wish to block or manipulate packets based on things not immediately evident in the packet, but things that can often be calculated via other mechanisms.
 
 nft_dict provides the ability to create dictionaries (lookup tables) stored within kernel space for fast lookups. These tables can be maintained by userspace applications where it is more convenient to calculate various network metadata.
-In our case, we have a userspace daemon (packetd) which listens to various packets with NFqueue and builds various dictionaries of metadata based on the traffic it sees and the information it gathers.
+In our case, we have a userspace daemon (packetd) which listens to various packets with nfqueue and builds various dictionaries of metadata based on the traffic it sees and the information it gathers.
 
 nft_dict is a kernel module providing the kernel functionality.
-Additionally userspace patches are required in order to use the "dict" expression from within an nft rule.
+Additionally, userspace patches are required in order to use the "dict" expression from within an nft rule.
 These currently live here:
 
 https://github.com/untangle/mfw_openwrt/blob/openwrt-18.06/libnftnl/patches/999-libnftnl-Add-dict-support.patch
