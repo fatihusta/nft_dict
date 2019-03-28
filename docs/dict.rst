@@ -91,7 +91,7 @@ Much like other nft expressions you can use this as a "condition":
 
 And you can also set values in the table:
 
-*dict sessions ct id username set user123*
+*dict sessions ct id username long_string set user123*
 
 You can also flush an entire dictionary (row) from a table:
 
