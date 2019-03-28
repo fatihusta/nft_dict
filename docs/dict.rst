@@ -27,7 +27,7 @@ Syntax
 
 The syntax of an dict nft expression is as follows:
 
-dict <table_name> <key expression> <field_name> <data_type> <value>
+dict <table_name> <key_expression> <field_name> <data_type> <value>
 
 table_name
 ~~~~~~~~~~
@@ -102,7 +102,7 @@ Example Tables
 --------------
 
 Lets look at a few examples of how this might be useful. In our case the userspace daemon, packetd, processes packets and uses various ways to calculate metadata.
-It maintains all of this metadata in various dictionaries. The most useful and commonly used table is the "session" table which stores a list of all current sessions and what is known about them:
+It maintains all of this metadata in various dictionaries. The most useful and commonly used table is the "sessions" table which stores a list of all current sessions and what is known about them:
 Lets look at a stripped-down imaginary sessions table as an example. To keep it simple we'll reduce the number of columns quite a bit.
 
 sessions:
@@ -194,7 +194,7 @@ Some example use cases of how these tables can be used in nft rules to control t
 
 - a host's profile
   
-  - example: all androids hosts are blocked from certain services
+  - example: all android hosts are blocked from certain services
   - example: all ipad devices use the second WAN link
     
 - a host's quota
@@ -226,15 +226,15 @@ Block netflix:
 
 Reject any packet who's mac-vendor contains the string NEST:
 
-*nft add rule ip filter forward dict host ip saddr mac-vendor long_string \*NEST\* reject*
+*nft add rule ip filter forward dict hosts ip saddr mac-vendor long_string \*NEST\* reject*
 
 If a host is attempting to connect to a webserver, but has not been authenticated via captive portal, redirect to the captive portal page:
 
-*nft add rule ip filter forward tcp dport 80 dict host ip saddr captive-portal-authenticated bool false dnat to 127.0.0.1:80*
+*nft add rule ip filter forward tcp dport 80 dict hosts ip saddr captive-portal-authenticated bool false dnat to 127.0.0.1:80*
 
 If a device has exhausted its quota, reject its traffic:
 
-*nft add rule ip filter forward dict devices ether saddr quota-remaining integer <= 0 reject*
+*nft add rule ip filter forward dict devices ether saddr quota-remaining int 0 reject*
 
 If a user has exceeded their quota, reject its traffic. This uses the conntrack id to look up the username associated with a session,
 and then uses the username as the key into the user table.
@@ -243,15 +243,15 @@ and then uses the username as the key into the user table.
 
 Reject all traffic destined for a particular country:
 
-*nft add rule ip filter forward dict session ct id server_country long_string NL reject*
+*nft add rule ip filter forward dict sessions ct id server_country long_string NL reject*
 
 For all hosts, set the mac_address field with the source mac address of the packet:
 
-*nft add rule ip filter prerouting ct state new dict host ip saddr mac_address ether_addr set ether saddr*
+*nft add rule ip filter prerouting ct state new dict hosts ip saddr mac_address ether_addr set ether saddr*
 
 Block netflix for all users in the sales group. This looks up the user from the sessions tables using ct id, then uses that to lookup the user in the users table and then finds the groups.
 
-*nft add rule ip filter forward dict users dict sessions ct id username long_string  user_group long_string \*sales\* reject*
+*nft add rule ip filter forward dict users dict sessions ct id username long_string user_group long_string \*sales\* reject*
 
 Managing Table Entries
 --------------------
