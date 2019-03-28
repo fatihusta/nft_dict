@@ -329,3 +329,34 @@ Read just one field from a specific session
 
   [root @ untangle] ~ # echo -n "table=sessions,key_int=286331238,field=server_country" > /proc/net/dict/read ; cat /proc/net/dict/read
   table: sessions key_int:286331238 field: server_country string: US
+
+Add a string entry to the sessions table
+
+.. code::
+
+  [root @ untangle] ~ # echo -n "table=sessions,key_int=1122334455,field=application,string=gmail" > /proc/net/dict/write
+
+Add a boolean entry to the users table
+
+.. code::
+
+  [root @ untangle] ~ # echo -n "table=users,key_string=user555,field=quota_exceeded,bool=true" > /proc/net/dict/write
+  
+Delete a specific field from a specific session
+
+.. code::
+
+  [root @ untangle] ~ # echo -n "table=sessions,key_int=1122334455,field=application" > /proc/net/dict/delete
+  
+Delete a specific session from the sessions table
+
+.. code::
+
+  [root @ untangle] ~ # echo -n "table=sessions,key_int=1122334455" > /proc/net/dict/delete
+  
+Delete all sessions from the sessions table
+
+.. code::
+
+  [root @ untangle] ~ # echo -n "table=sessions" > /proc/net/dict/delete
+  
