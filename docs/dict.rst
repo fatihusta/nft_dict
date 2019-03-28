@@ -301,31 +301,31 @@ Read just the sessions table
 .. code::
 
   [root @ untangle] ~ # echo -n "table=sessions" > /proc/net/dict/read ; cat /proc/net/dict/read
-      table: sessions key_int:286331238 field: application_chain string: IP/UDP/DNS
-    table: sessions key_int:286331238 field: session_id int64: 12341210
-    table: sessions key_int:286331238 field: client_country string: XL
-    table: sessions key_int:286331238 field: server_country string: US
-    ...
-    table: sessions key_int:286331255 field: application_chain string: IP/UDP/DNS
-    table: sessions key_int:286331255 field: session_id int64: 12341212
-    table: sessions key_int:286331255 field: client_country string: XL
-    table: sessions key_int:286331255 field: server_country string: US
-    ...
+  table: sessions key_int:286331238 field: application_chain string: IP/UDP/DNS
+  table: sessions key_int:286331238 field: session_id int64: 12341210
+  table: sessions key_int:286331238 field: client_country string: XL
+  table: sessions key_int:286331238 field: server_country string: US
+  ...
+  table: sessions key_int:286331255 field: application_chain string: IP/UDP/DNS
+  table: sessions key_int:286331255 field: session_id int64: 12341212
+  table: sessions key_int:286331255 field: client_country string: XL
+  table: sessions key_int:286331255 field: server_country string: US
+  ...
 
 Read all of the entries for a specific session
 
 .. code::
 
   [root @ untangle] ~ # echo -n "table=sessions,key_int=286331238" > /proc/net/dict/read ; cat /proc/net/dict/read
-    table: sessions key_int:286331238 field: application_chain string: IP/UDP/DNS
-    table: sessions key_int:286331238 field: session_id int64: 12341210
-    table: sessions key_int:286331238 field: client_country string: XL
-    table: sessions key_int:286331238 field: server_country string: US
-    ...
+  table: sessions key_int:286331238 field: application_chain string: IP/UDP/DNS
+  table: sessions key_int:286331238 field: session_id int64: 12341210
+  table: sessions key_int:286331238 field: client_country string: XL
+  table: sessions key_int:286331238 field: server_country string: US
+  ...
 
 Read just one field from a specific session
 
 .. code::
 
   [root @ untangle] ~ # echo -n "table=sessions,key_int=286331238,field=server_country" > /proc/net/dict/read ; cat /proc/net/dict/read
-    table: sessions key_int:286331238 field: server_country string: US
+  table: sessions key_int:286331238 field: server_country string: US
