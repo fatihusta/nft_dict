@@ -68,7 +68,7 @@ int64       8 byte integer
 
 value
 ~~~~~
-Value may be just a value or may be a value expression. The specified value must match the DATA_TYPE specified. Below are some examples
+Value may be just a value or may be a value expression. The specified value must match the data_type specified. Below are some examples
 
 =========== =========
 Type        Example
