@@ -504,7 +504,11 @@ nft_cmp_select_ops(const struct nft_ctx *ctx, const struct nlattr * const tb[])
 
 	return &nft_cmp_ops;
 err1:
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,12,0)
 	nft_data_release(&data, desc.type);
+#else
+	nft_data_uninit(&data, desc.type);
+#endif
 	return ERR_PTR(-EINVAL);
 }
 
