@@ -297,7 +297,9 @@ static void nft_ctid_get_eval(const struct nft_expr *expr, struct nft_regs *regs
 	unsigned int ct_id;
 
 	ct = nf_ct_get(pkt->skb, &ctinfo);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,131)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,14,120) && LINUX_VERSION_CODE < KERNEL_VERSION(4,15,0)) || \
+    (LINUX_VERSION_CODE >= KERNEL_VERSION(4,19,44) && LINUX_VERSION_CODE < KERNEL_VERSION(4,20,0)) || \
+    (LINUX_VERSION_CODE >= KERNEL_VERSION(5,1,0))
 	if (!ct)
 		ct_id = 0;
 	else
