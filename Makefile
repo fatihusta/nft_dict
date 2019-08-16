@@ -17,3 +17,6 @@ clean:
 	rm -rf Module.markers modules.order Module.symvers
 	rm -rf dict.ko dict.mod.c dict.mod.o dict.o
 	rm -rf nft_dict.ko nft_dict.mod.c nft_dict.mod.o nft_dict.o
+	rm -rf .dict.*
+	rm -rf .nft_dict.*
+	rm -rf .tmp_versions
