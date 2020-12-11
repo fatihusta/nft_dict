@@ -544,7 +544,8 @@ EXPORT_SYMBOL(seq_print_bool);
 
 void seq_print_integer(struct seq_file *m, char *buf)
 {
-	seq_printf(m, "int: %u", *(int *)buf);
+	uint32_t temp = *(uint32_t *)buf;
+	seq_printf(m, "int: %u", ntohl(temp));
 }
 EXPORT_SYMBOL(seq_print_integer);
 
@@ -616,6 +617,7 @@ static int write_dict(struct file *file, char *buf, size_t size)
 						pr_err("%s: Opt_key_int failed %d\n", __func__, ret);
 						goto free_local_buf;
 					}
+					temp = htonl(temp);
 					key_len = sizeof(temp);
 					memcpy(key, &temp, key_len);
 					key_printfn = &seq_print_integer;
@@ -901,6 +903,7 @@ static int read_id_write(struct file *file, char *buf, size_t size)
 						pr_err("%s: Opt_key_int failed %d\n", __func__, ret);
 						goto free_local_buf;
 					}
+					temp = htonl(temp);
 					key_len = sizeof(temp);
 					memcpy(key, &temp, key_len);
 					break;
@@ -1035,6 +1038,7 @@ static int delete_write(struct file *file, char *buf, size_t size)
 						pr_err("%s: Opt_key_int failed %d\n", __func__, ret);
 						goto free_local_buf;
 					}
+					temp = htonl(temp);
 					key_len = sizeof(temp);
 					memcpy(key, &temp, key_len);
 					break;

@@ -303,7 +303,7 @@ static void nft_ctid_get_eval(const struct nft_expr *expr, struct nft_regs *regs
 	if (!ct)
 		ct_id = 0;
 	else
-		ct_id = htonl(nf_ct_get_id(ct));
+		ct_id = nf_ct_get_id(ct);
 #else
 	ct_id = (unsigned long)ct;
 #endif
